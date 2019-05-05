@@ -1,0 +1,16 @@
+go to /usr or any other directory:
+
+wget https://bintray.com/jfrog/artifactory-pro/download_file?file_path=org%2Fartifactory%2Fpro%2Fjfrog-artifactory-pro%2F6.9.1%2Fjfrog-artifactory-pro-6.9.1.zip
+unzip download_file?file_path=org%2Fartifactory%2Fpro%2Fjfrog-artifactory-pro%2F6.9.1%2Fjfrog-artifactory-pro-6.9.1.zip
+
+mv artifactory-pro-6.9.1 artifactory
+yum install java
+
+swapon -a
+
+nohup ./artifactory.sh &
+
+browse the site: http://localhost:8081/artifactory/
+
+
+sign in for evaluation/free edition and use.

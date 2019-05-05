@@ -1,0 +1,291 @@
+Vagrant.configure("2") do |config|
+ config.vm.define "acs" do |acs|
+         acs.vm.box="nrel/CentOS-6.5-x86_64"
+  acs.vm.hostname = "acs"
+  acs.vm.customize ["modifyvm", :id, "--cpus", 2]
+  acs.vm.customize ["modifyvm", :id, "--memory", 2048]
+ end
+
+ config.vm.define "web" do |web|
+  web.vm.box="nrel/CentOS-6.5-x86_64"
+  web.vm.hostname = "web"
+  web.vm.customize ["modifyvm", :id, "--cpus", 2]
+  web.vm.customize ["modifyvm", :id, "--memory", 2048]
+ end
+
+ config.vm.define "db" do |db|
+  db.vm.box="nrel/CentOS-6.5-x86_64"
+  db.vm.hostname="db"
+  db.vm.customize ["modifyvm", :id, "--cpus", 2]
+  db.vm.customize ["modifyvm", :id, "--memory", 2048]
+ end
+
+end
+
+==========================
+
+On CentOS/7
+=====================
+
+cat <<EOF > /etc/yum.repos.d/kubernetes.repo
+[kubernetes]
+name=Kubernetes
+baseurl=https://packages.cloud.google.com/yum/repos/kubernetes-el7-x86_64
+enabled=1
+gpgcheck=1
+repo_gpgcheck=1
+gpgkey=https://packages.cloud.google.com/yum/doc/yum-key.gpg https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
+exclude=kube*
+EOF
+
+swapoff -a ==> disable the swap memory
+
+Setting SELinux in permissive mode by running setenforce 0 and sed ... effectively disables it. This is required to allow containers to access the host filesystem, which is needed by pod networks for example. You have to do this until SELinux support is improved in the kubelet.
+
+setenforce 0
+sed -i 's/^SELINUX=enforcing$/SELINUX=permissive/' /etc/selinux/config
+yum install -y kubelet kubeadm kubectl --disableexcludes=kubernetes
+systemctl enable --now kubelet
+
+
+Some users on RHEL/CentOS 7 have reported issues with traffic being routed incorrectly due to iptables being bypassed. 
+You should ensure net.bridge.bridge-nf-call-iptables is set to 1 in your sysctl config, e.g.
+
+Make sure that the br_netfilter module is loaded before this step. 
+This can be done by running lsmod | grep br_netfilter. 
+To load it explicitly call modprobe br_netfilter.
+
+
+
+cat <<EOF >  /etc/sysctl.d/k8s.conf
+net.bridge.bridge-nf-call-ip6tables = 1
+net.bridge.bridge-nf-call-iptables = 1
+EOF
+sysctl --system
+
+yum install -y kubelet kubeadm kubectl --disableexcludes=kubernetes
+systemctl enable --now kubelet
+
+# Install Docker CE
+## Set up the repository
+### Install required packages.
+    yum install yum-utils device-mapper-persistent-data lvm2
+
+### Add docker repository.
+yum-config-manager \
+    --add-repo \
+    https://download.docker.com/linux/centos/docker-ce.repo
+
+## Install docker ce.
+yum update && yum install docker-ce-18.06.2.ce
+
+## Create /etc/docker directory.
+mkdir /etc/docker
+
+# Setup daemon.
+cat > /etc/docker/daemon.json <<EOF
+{
+  "exec-opts": ["native.cgroupdriver=systemd"],
+  "log-driver": "json-file",
+  "log-opts": {
+    "max-size": "100m"
+  },
+  "storage-driver": "overlay2",
+  "storage-opts": [
+    "overlay2.override_kernel_check=true"
+  ]
+}
+EOF
+
+mkdir -p /etc/systemd/system/docker.service.d
+
+# Restart docker.
+systemctl daemon-reload
+systemctl restart docker
+
+
+
+
+kubeadm init --pod-network-cidr=192.168.0.0/16
+
+ mkdir -p $HOME/.kube
+  sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+  sudo chown $(id -u):$(id -g) $HOME/.kube/config
+
+[vagrant@acs ~]$ kubectl get nodes
+NAME   STATUS     ROLES    AGE     VERSION
+acs    NotReady   master   3m45s   v1.13.4
+
+[vagrant@acs ~]$ kubectl get pods --all-namespaces
+NAMESPACE     NAME                          READY   STATUS    RESTARTS   AGE
+kube-system   coredns-86c58d9df4-m2586      0/1     Pending   0          4m10s
+kube-system   coredns-86c58d9df4-rl2jj      0/1     Pending   0          4m10s
+kube-system   etcd-acs                      1/1     Running   0          3m13s
+kube-system   kube-apiserver-acs            1/1     Running   0          3m38s
+kube-system   kube-controller-manager-acs   1/1     Running   0          3m14s
+kube-system   kube-proxy-npw66              1/1     Running   0          4m10s
+kube-system   kube-scheduler-acs            1/1     Running   0          3m26s
+
+kubectl taint nodes <node> node-role.kubernetes.io/master:NoSchedule-
+
+Make sure your VM adapter is set to NAT in virtual box, otherwise you may face internet access issue.
+kubectl create -f https://raw.githubusercontent.com/cilium/cilium/v1.4/examples/kubernetes/1.13/cilium.yaml
+configmap/cilium-config created
+daemonset.apps/cilium created
+deployment.apps/cilium-operator created
+serviceaccount/cilium-operator created
+clusterrole.rbac.authorization.k8s.io/cilium-operator created
+clusterrolebinding.rbac.authorization.k8s.io/cilium-operator created
+clusterrole.rbac.authorization.k8s.io/cilium-etcd-operator created
+clusterrolebinding.rbac.authorization.k8s.io/cilium-etcd-operator created
+clusterrole.rbac.authorization.k8s.io/etcd-operator created
+clusterrolebinding.rbac.authorization.k8s.io/etcd-operator created
+serviceaccount/cilium-etcd-operator created
+serviceaccount/cilium-etcd-sa created
+deployment.apps/cilium-etcd-operator created
+clusterrolebinding.rbac.authorization.k8s.io/cilium created
+clusterrole.rbac.authorization.k8s.io/cilium created
+serviceaccount/cilium created
+
+[vagrant@acs network-scripts]$ kubectl get pods --all-namespaces
+NAMESPACE     NAME                                   READY   STATUS              RESTARTS   AGE
+kube-system   cilium-cswkv                           0/1     CrashLoopBackOff    2          4m41s
+kube-system   cilium-etcd-operator-d6cb86868-f8w55   1/1     Running             0          4m41s
+kube-system   cilium-operator-56c879c9d-8flss        0/1     ContainerCreating   0          4m41s
+kube-system   coredns-86c58d9df4-m2586               0/1     ContainerCreating   0          130m
+kube-system   coredns-86c58d9df4-rl2jj               0/1     ContainerCreating   0          130m
+kube-system   etcd-acs                               1/1     Running             0          130m
+kube-system   etcd-operator-5cf67779fd-ldvnt         0/1     ContainerCreating   0          4m20s
+kube-system   kube-apiserver-acs                     1/1     Running             0          130m
+kube-system   kube-controller-manager-acs            1/1     Running             0          130m
+kube-system   kube-proxy-npw66                       1/1     Running             0          130m
+kube-system   kube-scheduler-acs                     1/1     Running             0          130m
+
+============
+
+kubectl apply -f https://docs.projectcalico.org/v3.3/getting-started/kubernetes/installation/hosted/rbac-kdd.yaml
+kubectl apply -f https://docs.projectcalico.org/v3.3/getting-started/kubernetes/installation/hosted/kubernetes-datastore/calico-networking/1.7/calico.yaml 
+
+To install Kubenetes dashboard UI:
+kubectl create -f https://raw.githubusercontent.com/kubernetes/dashboard/master/aio/deploy/recommended/kubernetes-dashboard.yaml
+================
+To create dashboard:
+ [vagrant@acs ~]$ kubectl create -f https://raw.githubusercontent.com/kubernetes/dashboard/master/aio/deploy/recommended/kubernetes-dashboard.yaml
+secret/kubernetes-dashboard-certs created
+secret/kubernetes-dashboard-csrf created
+serviceaccount/kubernetes-dashboard created
+role.rbac.authorization.k8s.io/kubernetes-dashboard-minimal created
+rolebinding.rbac.authorization.k8s.io/kubernetes-dashboard-minimal created
+deployment.apps/kubernetes-dashboard created
+service/kubernetes-dashboard created
+=========================yaml file====
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: admin-user
+  namespace: kube-system
+
+[vagrant@acs ~]$ vi dashboard_adminuser.yaml
+[vagrant@acs ~]$ kubectl apply -f dashboard_adminuser.yaml
+serviceaccount/admin-user created
+
+
+
+======bind a role to the admin user======
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: admin-user
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+- kind: ServiceAccount
+  name: admin-user
+  namespace: kube-system
+
+[vagrant@acs ~]$ kubectl apply -f role-bind.yaml
+clusterrolebinding.rbac.authorization.k8s.io/admin-user created
+
+===
+
+Get the token for login:
+
+kubectl -n kube-system describe secret $(kubectl -n kube-system get secret | grep admin-user | awk '{print $1}')
+
+[vagrant@acs ~]$ kubectl -n kube-system describe secret $(kubectl -n kube-system get secret | grep admin-user | awk '{print $1}')
+Name:         admin-user-token-fhdcd
+Namespace:    kube-system
+Labels:       <none>
+Annotations:  kubernetes.io/service-account.name: admin-user
+              kubernetes.io/service-account.uid: 77d3d086-4d76-11e9-932c-525400261060
+
+Type:  kubernetes.io/service-account-token
+
+Data
+====
+ca.crt:     1025 bytes
+namespace:  11 bytes
+token:      eyJhbGciOiJSUzI1NiIsImtpZCI6IiJ9.eyJpc3MiOiJrdWJlcm5ldGVzL3NlcnZpY2VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3BhY2UiOiJrdWJlLXN5c3RlbSIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnQvc2VjcmV0Lm5hbWUiOiJhZG1pbi11c2VyLXRva2VuLWZoZGNkIiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9zZXJ2aWNlLWFjY291bnQubmFtZSI6ImFkbWluLXVzZXIiLCJrdWJlcm5ldGVzLmlvL3NlcnZpY2VhY2NvdW50L3NlcnZpY2UtYWNjb3VudC51aWQiOiI3N2QzZDA4Ni00ZDc2LTExZTktOTMyYy01MjU0MDAyNjEwNjAiLCJzdWIiOiJzeXN0ZW06c2VydmljZWFjY291bnQ6a3ViZS1zeXN0ZW06YWRtaW4tdXNlciJ9.VM_h_tktskaLKiBxFe38q2j21n9QtBztnuHnvjTEtsg4cJHTUPWhKfFRWz8cUoZbZr842-w7rNRdzjsZOMJopetE7XEmUq0PCEnJvRFF6a5RsGRZeWljC_4EvR1PmJXPzsXkUAlK_ixzTiCvFkhsa3K0Gxmg7FDS92rlTexi-m0yf--Z7_qZu4ixvU_ioINdeM8_X3cKe4zVh_VVo4MDxrjxe5al5336y-esVVreEL8aJreUKbDZX15yGCs8R2qHp7vGCn4q1ekyrhKf8dzZhRxj6P5fHV7bbYBI-sdVLPpIhwx9AZxsRqCORDSYmb6HyAm83CxYHXi2WRjr0AUgeA
+
+
+nohup kubectl proxy --address="10.0.2.15" -p 443 --accept-hosts='^*$' &
+
+http://localhost:8001/api/v1/namespaces/kube-system/services/https:kubernetes-dashboard:/proxy/
+
+curl http://10.0.2.15:8001/api/v1/namespaces/kube-system/services/https:kubernetes-dashboard:/proxy/
+
+http://10.0.2.15:30869
+
+===============
+####create self signed SSL cert 
+openssl genrsa -des3 -passout pass:x -out dashboard.pass.key 2048
+openssl rsa -passin pass:x -in dashboard.pass.key -out dashboard.key
+rm dashboard.pass.key
+openssl req -new -key dashboard.key -out dashboard.csr ## this will ask to input some information###
+openssl x509 -req -sha256 -days 365 -in dashboard.csr -signkey dashboard.key -out dashboard.crt
+
+================================
+
+The below is tested:
+kubectl proxy --address "10.0.2.15" -p 8080 --accept-hosts='^*$'
+
+In VBox: 
+do port mapping: 127.0.0.1:8082  --> 10.0.2.15:8080
+
+vi dashboard-adminuser.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: admin-user
+  namespace: kube-system
+
+$ kubectl apply -f dashboard-adminuser.yaml
+
+$ vi bindrole.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: admin-user
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+- kind: ServiceAccount
+  name: admin-user
+  namespace: kube-system
+
+$ kubectl apply -f bindrole.yaml
+kubectl -n kube-system describe secret $(kubectl -n kube-system get secret | grep admin-user | awk '{print $1}')
+
+Token:
+
+eyJhbGciOiJSUzI1NiIsImtpZCI6IiJ9.eyJpc3MiOiJrdWJlcm5ldGVzL3NlcnZpY2VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3BhY2UiOiJrdWJlLXN5c3RlbSIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnQvc2VjcmV0Lm5hbWUiOiJhZG1pbi11c2VyLXRva2VuLWZyMmJuIiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9zZXJ2aWNlLWFjY291bnQubmFtZSI6ImFkbWluLXVzZXIiLCJrdWJlcm5ldGVzLmlvL3NlcnZpY2VhY2NvdW50L3NlcnZpY2UtYWNjb3VudC51aWQiOiJmZWNjNjUyNy01OGE4LTExZTktYTVlOS01MjU0MDAyNjEwNjAiLCJzdWIiOiJzeXN0ZW06c2VydmljZWFjY291bnQ6a3ViZS1zeXN0ZW06YWRtaW4tdXNlciJ9.wls7Rqn_FOuX3xW1rO5z2-eYTxbSZW6KLaF_6a8HtE8h8eB7Fb_EXAq_UATFMIUTww2olCq4ZOnAGQlghCSDm5d3jY1UU5kR91BA0L66DSif8dl6osSWo5TBZH1LoECguF7bdmxM0BGs87xwPUmWco55wLM0rCtg_KmlgOpFyOK4lL51XsxA9_ksHJ-1xjtYxgIsgjhDdM1TsUd0jIXL8e5s-d22uYjetD-R9qb8ukBAQJfS_0VM2OQkrIR6M6Wf1KQNwDf4n-fr1mnCdIVGPNLNKIM6_2REoRvk9dysyXwtIN3GUtWA0D_G1ePrcrqwzkwIHxDaJw-Bsb1410MSjg
+
+
+ca.crt:     1025 bytes
+namespace:  11 bytes
+

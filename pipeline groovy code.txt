@@ -1,0 +1,19 @@
+node('master') {
+        stage('GitHub Checkout'){
+        git 'https://github.com/atifsaddique211f/spring-maven-sample'    
+        }
+    	stage('Build') {
+    	//dir('$JENKINS_HOME/pipelinejob') {
+        sh label: '', script: '''docker run -i --rm -v "$PWD":/app -w /app --name runmaven maven:3.3-jdk-8 mvn clean install
+        cat << EOF > Dockerfile 
+        FROM tomcat:8
+        ADD target/*.war /usr/local/tomcat/webapps/
+        EOF
+        docker build -f Dockerfile -t demo/tomcat:8 .'''
+		//}
+		stage('Code Quality Report'){
+		sh label: '', script: 'docker run -i --rm -v "$PWD":/app -w /app --name runmaven maven:3.3-jdk-8 mvn sonar:sonar -Dsonar.projectKey=tdcproject -Dsonar.organization=sanju99sen-github -Dsonar.host.url=https://sonarcloud.io -Dsonar.login=9e6f87faae7dd78df158583ee775fa18915ec3ac'
+		}
+	}
+
+}

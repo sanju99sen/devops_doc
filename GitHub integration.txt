@@ -1,0 +1,131 @@
+INstall pipeline Maven intergration
+
+
+2254e0c0fb2ac9f7f3bc2469af17224b78451c5cd31f7e72dbcd28832eb0bf80
+
+
+
+
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+apt-get update
+apt-cache policy docker-ce
+sudo apt-get install -y docker-ce
+
+
+
+apt-get update -y && apt-get install -y apt-transport-https ca-certificates curl software-properties-common && \
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add - && \
+add-apt-repository \
+"deb [arch=amd64] https://download.docker.com/linux/ubuntu \
+$(lsb_release -cs) \
+stable" && \
+    apt-get update -y && apt-get install -y docker-ce=18.06.2~ce~3-0~ubuntu
+
+CMD ["systemctl", "enable", "docker.service"]
+
+
+debconf: delaying package configuration, since apt-utils is not installed
+
+
+FROM jenkins/jenkins:lts
+# if we want to install via apt
+USER root
+RUN apt-get update && apt-get install -y docker
+# drop back to the regular jenkins user - good practice
+USER jenkins
+
+======================================================
+
+1. Dockerfile.
+
+FROM centos:7
+ENV container docker
+RUN (cd /lib/systemd/system/sysinit.target.wants/; for i in *; do [ $i == \
+systemd-tmpfiles-setup.service ] || rm -f $i; done); \
+rm -f /lib/systemd/system/multi-user.target.wants/*;\
+rm -f /etc/systemd/system/*.wants/*;\
+rm -f /lib/systemd/system/local-fs.target.wants/*; \
+rm -f /lib/systemd/system/sockets.target.wants/*udev*; \
+rm -f /lib/systemd/system/sockets.target.wants/*initctl*; \
+rm -f /lib/systemd/system/basic.target.wants/*;\
+rm -f /lib/systemd/system/anaconda.target.wants/*;
+VOLUME [ "/sys/fs/cgroup" ]
+CMD ["/usr/sbin/init"]
+
+docker build -f Dockerfile -t centos7 .
+
+2. run and login to the conatainer.
+
+docker run -it <conatainer-id> /bin/bash
+
+3. Install docker CE and then run: chkconfig jenkins on
+
+4. yum install -y wget
+
+5. 
+wget -O /etc/yum.repos.d/jenkins.repo http://pkg.jenkins-ci.org/redhat-stable/jenkins.repo
+rpm --import https://jenkins-ci.org/redhat/jenkins-ci.org.key
+yum install -y jenkins
+
+6. yum install -y java-1.8.0-openjdk
+
+7.  yum install firewalld
+
+
+firewall-cmd --permanent --new-service=jenkins
+firewall-cmd --permanent --service=jenkins --set-short="Jenkins Service Ports"
+firewall-cmd --permanent --service=jenkins --set-description="Jenkins service firewalld port exceptions"
+firewall-cmd --permanent --service=jenkins --add-port=8080/tcp
+firewall-cmd --permanent --add-service=jenkins
+firewall-cmd --zone=public --add-service=http --permanent
+firewall-cmd --reload
+
+firewall-cmd --list-all
+
+/usr/lib/systemd/system/dbus.socket
+
+
+Build immage from container:
+docker commit -m "jenkins added in centos base" <container id> <image name to be create>
+
+
+NOTE - jenkins web runs with jenkins user. add the jenkins user to the docker group
+usermod -aG docker jenkins
+systemctl restart jenkins
+
+
+
+=====
+
+git 'https://github.com/atifsaddique211f/spring-maven-sample'
+
+node('master') {
+    	stage('build') {
+    		dir('$JENKINS_HOME/pipelinejob') {
+    		docker run -i --rm -v "$PWD":/app -w /app --name runmaven maven:3.3-jdk-8 mvn clean install
+		cat << EOF > Dockerfile 
+		FROM tomcat:8
+		ADD target/*.war /usr/local/tomcat/webapps/
+		EOF
+		docker build -f Dockerfile -t demo/tomcat:8 .
+		}
+	}
+
+}
+
+====
+
+cd $JENKINS_HOME/workspace/javaweb
+whoami
+docker run -i --rm -v "$PWD":/app -w /app --name runmaven maven:3.3-jdk-8 mvn clean install
+cat << EOF > Dockerfile 
+FROM tomcat:8
+ADD target/*.war /usr/local/tomcat/webapps/
+EOF
+docker build -f Dockerfile -t demo/tomcat:8 .
+#docker run --rm -p 8080:8080 demo/tomcat:8
+
+
+
+docker run -i --rm -v '/var/lib/jenkins/workspace/pipelinejob/$JENKINS_HOME/pipelinejob:/app

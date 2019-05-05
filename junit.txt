@@ -1,0 +1,40 @@
+sudo yum install junit
+
+[vagrant@db testJunit]$ sudo find / -name "junit.jar" -type f
+/var/lib/jenkins/plugins/junit/WEB-INF/lib/junit.jar
+/usr/share/java/junit.jar
+
+[vagrant@db testJunit]$ which java
+/usr/bin/java
+
+export JAVA_HOME=/usr
+export PATH=$PATH:$JAVA_HOME/bin/
+
+[vagrant@db testJunit]$ ls -l /usr/share/java
+total 552
+-rw-r--r--. 1 root root  90619 Jun 10  2014 easymock2-2.4.jar
+lrwxrwxrwx. 1 root root     17 Apr 20 16:30 easymock2-2.5.2.jar -> easymock2-2.4.jar
+drwxr-xr-x. 2 root root    100 Apr 20 16:30 hamcrest
+lrwxrwxrwx. 1 root root     25 Apr 20 16:30 junit4.jar -> /usr/share/java/junit.jar
+-rw-r--r--. 1 root root 290000 Jun 10  2014 junit.jar
+-rw-r--r--. 1 root root 179382 Nov  5  2016 qdox.jar
+
+
+export CLASSPATH=$CLASSPATH:$JUNIT_HOME/junit4.jar
+=========================================================
+Maven:
+
+[root@db src]# pwd
+/usr/src
+
+
+wget http://www-us.apache.org/dist/maven/maven-3/3.5.4/binaries/apache-maven-3.5.4-bin.tar.gz
+
+tar -xvf apache-maven-3.5.4-bin.tar.gz
+
+mv apache-maven-3.5.4/ apache-maven/
+
+#cd /etc/profile.d/
+
+export M2_HOME=/usr/src/apache-maven
+export PATH=${M2_HOME}/bin:${PATH}

@@ -1,0 +1,39 @@
+## to provide access to docker client to docker daemon socket####
+sudo usermod -aG docker vagrant
+
+sudo su
+yum install -y git 
+
+###download the code from github###
+git clone https://github.com/atifsaddique211f/spring-maven-sample
+
+### change to the download app folder###
+cd spring-maven-sample
+
+### Run maven build to build and package the code ###
+docker run -it --rm -v "$PWD":/app -w /app maven:3.3-jdk-8 mvn clean install
+
+### Create a Dockerfile to build a container on top of base image tomcat:8 ### 
+cat << EOF > Dockerfile 
+FROM tomcat:8
+ADD target/*.war /usr/local/tomcat/webapps/
+EOF
+
+### Build the docker image 'demo/tomcat:8' from Docketfile ###
+docker build -f Dockerfile -t demo/tomcat:8 .
+
+### Run a container with the above image, forward container port 8080 to VM port 8080 ###
+docker run --rm -p 8080:8080 demo/tomcat:8
+
+#Note - If you are running the docker from a VM and trying to browse from HOST, then you need to do port forwarding from HOST to Guest.
+#Steps:
+#Go to Vbox instance window -> Menu -> Network adapters:
+#adapter should be NAT
+#click on "port forwarding"
+#insert new record (+ icon)
+#for host ip enter 127.0.0.1, and for guest ip address you got from prev. step (in my case it is 10.0.2.15)
+#in your case port is 8000 - put it on both, but you can change host port if you prefer
+#Go to host system and try it in browser:
+#Map HOST IP 127.0.0.1:8081 --> GUEST IP 10.0.2.15:8080
+
+#Finally browse the link: http://localhost:8081/springwebapp/car/add

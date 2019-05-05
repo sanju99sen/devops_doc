@@ -1,0 +1,22 @@
+1. login into - https://sonarcloud.io (using github login or new login)
+2. Click on the top right corner plus sign and then click "create new organization"
+3. Put the key and other values for your dummy organization
+4. Click 'Next'
+5. Click on top right corner plus sign again.
+6. create a new project and fill the details.
+7. generate security token and click 'Next'
+8. Choose the project language and build technology (Java & Maven)
+9. Copy the mvn code generated to be used in jenkins pipeline.
+
+
+example of the code generated:
+
+mvn sonar:sonar \
+  -Dsonar.projectKey=tdcproject \
+  -Dsonar.organization=sanju99sen-github \
+  -Dsonar.host.url=https://sonarcloud.io \
+  -Dsonar.login=9e6f87faae7dd78df158583ee775fa18915ec3ac  
+
+
+10 run the  code in a maven docker container.
+sh label: '', script: 'docker run -i --rm -v "$PWD":/app -w /app --name runmaven maven:3.3-jdk-8 mvn sonar:sonar -Dsonar.projectKey=tdcproject -Dsonar.organization=sanju99sen-github -Dsonar.host.url=https://sonarcloud.io -Dsonar.login=9e6f87faae7dd78df158583ee775fa18915ec3ac'

@@ -1,0 +1,53 @@
+git clone https://github.com/eldada/jenkins-in-kubernetes
+
+cd jenkins-in-kubernetes
+
+export DOCKER_REG="sanjoy-testdockerrepo.jfrog.io"
+
+docker build -t ${DOCKER_REG}/jenkins:lts-k8s .
+
+docker push ${DOCKER_REG}/jenkins:lts-k8s
+
+docker run -d --name jenkins -p 8080:8080 -v /var/run/docker.sock:/var/run/docker.sock ${DOCKER_REG}/jenkins:lts-k8s
+
+
+
+========
+Install HELM:
+wget https://storage.googleapis.com/kubernetes-helm/helm-v2.13.1-linux-amd64.tar.gz
+
+tar -xvf helm-v2.13.1-linux-amd64.tar.gz
+
+cd linux-amd64
+[root@web linux-amd64]# ls -lrt
+total 72332
+-rwxr-xr-x. 1 root root 37161248 Mar 21 18:44 helm
+-rwxr-xr-x. 1 root root 36886016 Mar 21 18:45 tiller
+-rw-r--r--. 1 root root     3204 Mar 21 18:45 README.md
+-rw-r--r--. 1 root root    11343 Mar 21 18:45 LICENSE
+
+$ sudo cp helm /usr/local/bin
+
+[vagrant@web ~]$ kubectl -n kube-system create serviceaccount tiller
+
+[vagrant@web ~]$ kubectl create clusterrolebinding tiller --clusterrole cluster-admin --serviceaccount=kube-system:tiller
+clusterrolebinding.rbac.authorization.k8s.io/tiller created
+
+
+$ helm init --upgrade --service-account tiller
+
+
+
+[vagrant@web ~]$ helm repo add virtualhelmrepo https://sanjoy.jfrog.io/sanjoy/virtualhelmrepo --username admin --password Zu6Tv8Ik5Kq0Se
+"virtualhelmrepo" has been added to your repositories
+
+$ helm create myjenkins
+$ cd myjenkins/
+$ vi values.yaml ==> edit the image with your docker image i.e image: sanjoy-testdockerrepo.jfrog.io/jenkins and tag: lts-k8s
+$ mkdir build_app
+$ helm package -d build_app myjenkins ==> will create pkg: myjenkins-0.1.0.tgz
+
+[vagrant@web ~]$ ls -lrt build_app
+total 4
+-rw-rw-r--. 1 vagrant vagrant 2803 May  3 13:14 myjenkins-0.1.0.tgz
+

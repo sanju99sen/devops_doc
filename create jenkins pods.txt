@@ -1,0 +1,76 @@
+###Run jenkins on kubernetes:
+
+##NOTE -- pull the image locally before you run it.
+### docker login <repo url> -u <> -p <>
+### docker pull <image>
+
+
+
+###Create a Namespace for Jenkins
+##kubectl delete ns jenkins
+kubectl create ns jenkins
+
+###Create a Deployment file named jenkins-deployment.yaml the latest Jenkins Docker Image.
+cat << EOF > jenkins-deployment.yaml
+apiVersion: extensions/v1beta1 # for versions before 1.7.0 use apps/v1beta1
+kind: Deployment
+metadata:
+  name: jenkins-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: jenkins
+  template:
+    metadata:
+      labels:
+        app: jenkins
+    spec:
+      containers:
+      - name: jenkins
+        image: sanjoy-testdockerrepo.jfrog.io/jenkins:lts-k8s
+        ports:
+        - containerPort: 8080
+EOF
+
+####Create the jenkins deployment in jenkins namespace
+##kubectl delete deployment <deployment name> --namespace=jenkins
+kubectl create -f jenkins-deployment.yaml --namespace=jenkins
+
+cat << EOF > jenkins-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: jenkins
+spec:
+  type: NodePort
+  ports:
+    - port: 8080
+      targetPort: 8080
+      nodePort: 30000
+  selector:
+    app: jenkins
+EOF
+
+###Create the jenkins service
+##kubectl delete service <service name> --namespace=jenkins
+kubectl create -f jenkins-service.yaml --namespace=jenkins
+
+
+####kubectl get pods --namespace=jenkins
+###kubectl logs <pod name found in the prev comand> --namespace=jenkins
+###---the above will show the jenkins admin password for the first time.###
+
+##jenkins will be avilable on nodeip on port 30000
+##map it to vbox through port forwarding on localhost 8083 port
+
+
+### --To login to the jenkins pod into bash shell, use below
+### kebectl exec it <podname> --namespace=jenkins -- /bin/bash
+
+$ su jenkins
+
+## copy the .kube directory to the pods ##
+$ scp -r vagrant@192.168.1.9:/home/vagrant/.kube .
+
+$ kubectl cluster-info

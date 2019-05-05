@@ -1,0 +1,44 @@
+$ vi dashboard-adminuser.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: admin-user
+  namespace: kube-system
+
+$ kubectl apply -f dashboard-adminuser.yaml
+
+$ vi bindrole.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: admin-user
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+- kind: ServiceAccount
+  name: admin-user
+  namespace: kube-system
+
+$ kubectl apply -f bindrole.yaml
+kubectl -n kube-system describe secret $(kubectl -n kube-system get secret | grep admin-user | awk '{print $1}')
+
+Token:
+
+eyJhbGciOiJSUzI1NiIsImtpZCI6IiJ9.eyJpc3MiOiJrdWJlcm5ldGVzL3NlcnZpY2VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3BhY2UiOiJrdWJlLXN5c3RlbSIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnQvc2VjcmV0Lm5hbWUiOiJhZG1pbi11c2VyLXRva2VuLWZyMmJuIiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9zZXJ2aWNlLWFjY291bnQubmFtZSI6ImFkbWluLXVzZXIiLCJrdWJlcm5ldGVzLmlvL3NlcnZpY2VhY2NvdW50L3NlcnZpY2UtYWNjb3VudC51aWQiOiJmZWNjNjUyNy01OGE4LTExZTktYTVlOS01MjU0MDAyNjEwNjAiLCJzdWIiOiJzeXN0ZW06c2VydmljZWFjY291bnQ6a3ViZS1zeXN0ZW06YWRtaW4tdXNlciJ9.wls7Rqn_FOuX3xW1rO5z2-eYTxbSZW6KLaF_6a8HtE8h8eB7Fb_EXAq_UATFMIUTww2olCq4ZOnAGQlghCSDm5d3jY1UU5kR91BA0L66DSif8dl6osSWo5TBZH1LoECguF7bdmxM0BGs87xwPUmWco55wLM0rCtg_KmlgOpFyOK4lL51XsxA9_ksHJ-1xjtYxgIsgjhDdM1TsUd0jIXL8e5s-d22uYjetD-R9qb8ukBAQJfS_0VM2OQkrIR6M6Wf1KQNwDf4n-fr1mnCdIVGPNLNKIM6_2REoRvk9dysyXwtIN3GUtWA0D_G1ePrcrqwzkwIHxDaJw-Bsb1410MSjg
+
+
+ca.crt:     1025 bytes
+namespace:  11 bytes
+
+$ kubectl apply -f https://raw.githubusercontent.com/kubernetes/dashboard/master/aio/deploy/recommended/kubernetes-dashboard.yaml
+
+
+$ kubectl proxy --address "10.0.2.15" -p 8080 --accept-hosts='^*$'
+
+In VBox: 
+do port mapping: 127.0.0.1:8082  --> 10.0.2.15:8080
+
+Browse 
+http://localhost:8082/api/v1/namespaces/kube-system/services/https:kubernetes-dashboard:/proxy/#!/secret/default/default-token-46clp?namespace=default

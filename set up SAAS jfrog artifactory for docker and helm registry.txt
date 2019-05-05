@@ -1,0 +1,23 @@
+https://jfrog.com/artifactory/free-trial/#saas
+
+
+Choose Cloud version and go for 14 days trial.
+
+Choose AWS cloud and Franfurt region.
+
+Fill the form to sign up for a Jfrog artifactory instance 
+Choose Docker, Helm in the integration drop down.
+
+Get the artifactory instance login details in the email and login there.
+
+
+Create a private local repo (named: testdockerrepo) for Docker, get the url for registry.
+
+docker pull hello-world
+
+docker tag hello-world sanjoy-testdockerrepo.jfrog.io/hello-world
+
+docker push sanjoy-testdockerrepo.jfrog.io/hello-world
+
+
+
